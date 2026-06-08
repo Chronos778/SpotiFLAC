@@ -1,8 +1,9 @@
 import { Button } from "@/components/ui/button";
-import { PlugZap, CheckCircle2, Loader2, Wrench } from "lucide-react";
+import { PlugZap, CheckCircle2, Loader2, Wrench, Server } from "lucide-react";
 import { TidalIcon, QobuzIcon, AmazonIcon, AppleMusicIcon, DeezerIcon } from "./PlatformIcons";
 import { useApiStatus } from "@/hooks/useApiStatus";
 import { SPOTIFLAC_NEXT_SOURCES } from "@/lib/api-status";
+import { openExternal } from "@/lib/utils";
 function renderStatusIndicator(status: "checking" | "online" | "offline" | "idle") {
     if (status === "online") {
         return <CheckCircle2 className="h-5 w-5 text-emerald-500"/>;
@@ -31,14 +32,25 @@ export function ApiStatusTab() {
     const { sources, statuses, nextStatuses, checkingSources, checkAllCurrent, checkAllNext } = useApiStatus();
     const isCheckingCurrent = sources.some((source) => checkingSources[source.id] === true);
     const isCheckingNext = SPOTIFLAC_NEXT_SOURCES.some((source) => nextStatuses[source.id] === "checking");
+    const isChecking = isCheckingCurrent || isCheckingNext;
+    const checkAll = () => {
+        void checkAllCurrent();
+        void checkAllNext();
+    };
     return (<div className="space-y-6">
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-sm font-semibold tracking-tight">SpotiFLAC</h3>
-          <Button variant="outline" size="sm" onClick={() => void checkAllCurrent()} disabled={isCheckingCurrent} className="gap-2">
-            {isCheckingCurrent ? <Loader2 className="h-4 w-4 animate-spin"/> : <PlugZap className="h-4 w-4"/>}
-            Check
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => openExternal("https://spotbye.qzz.io")} className="gap-2">
+              <Server className="h-4 w-4"/>
+              Details
+            </Button>
+            <Button variant="outline" size="sm" onClick={checkAll} disabled={isChecking} className="gap-2">
+              {isChecking ? <Loader2 className="h-4 w-4 animate-spin"/> : <PlugZap className="h-4 w-4"/>}
+              Check
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -60,13 +72,7 @@ export function ApiStatusTab() {
       <div className="border-t"/>
 
       <div className="space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-sm font-semibold tracking-tight">SpotiFLAC Next</h3>
-          <Button variant="outline" size="sm" onClick={() => void checkAllNext()} disabled={isCheckingNext} className="gap-2">
-            {isCheckingNext ? <Loader2 className="h-4 w-4 animate-spin"/> : <PlugZap className="h-4 w-4"/>}
-            Check
-          </Button>
-        </div>
+        <h3 className="text-sm font-semibold tracking-tight">SpotiFLAC Next</h3>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
           {SPOTIFLAC_NEXT_SOURCES.map((source) => {

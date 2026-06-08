@@ -40,6 +40,7 @@ export interface AlbumInfo {
     release_date: string;
     artists: string;
     images: string;
+    is_explicit?: boolean;
     upc?: string;
     batch?: string;
 }
@@ -93,6 +94,7 @@ export interface DiscographyAlbum {
     artists: string;
     images: string;
     external_urls: string;
+    is_explicit?: boolean;
 }
 export interface ArtistDiscographyResponse {
     artist_info: ArtistInfo;
@@ -120,6 +122,7 @@ export interface DownloadRequest {
     release_date?: string;
     cover_url?: string;
     tidal_api_url?: string;
+    qobuz_api_url?: string;
     output_dir?: string;
     audio_format?: string;
     folder_name?: string;
@@ -151,6 +154,7 @@ export interface DownloadResponse {
     file?: string;
     error?: string;
     already_exists?: boolean;
+    cancelled?: boolean;
     item_id?: string;
 }
 export interface HealthResponse {

@@ -113,7 +113,7 @@ func finalizeTidalDownload(outputFilename, spotifyTrackName, spotifyArtistName, 
 					fmt.Println("Fetching MusicBrainz metadata...")
 					if fetchedMeta, err := FetchMusicBrainzMetadata(isrc, trackTitle, artistName, albumTitle, useSingleGenre, embedGenre); err == nil {
 						res.Metadata = fetchedMeta
-						fmt.Println("✓ MusicBrainz metadata fetched")
+						fmt.Println("MusicBrainz metadata fetched")
 					} else {
 						fmt.Printf("Warning: Failed to fetch MusicBrainz metadata: %v\n", err)
 					}
@@ -253,7 +253,8 @@ func (t *TidalDownloader) GetTrackIDFromURL(tidalURL string) (int64, error) {
 func (t *TidalDownloader) GetDownloadURL(trackID int64, quality string) (string, error) {
 	fmt.Println("Fetching URL...")
 	if strings.TrimSpace(t.apiURL) == "" {
-		return "", fmt.Errorf("no configured custom tidal api instance")
+		fmt.Println("No custom Tidal instance configured, using community tdl-a endpoint")
+		return t.getTidalCommunityDownloadURL(trackID, quality)
 	}
 
 	url := fmt.Sprintf("%s/track/?id=%d&quality=%s", t.apiURL, trackID, quality)
@@ -261,31 +262,31 @@ func (t *TidalDownloader) GetDownloadURL(trackID int64, quality string) (string,
 
 	req, err := NewRequestWithDefaultHeaders(http.MethodGet, url, nil)
 	if err != nil {
-		fmt.Printf("✗ failed to create request: %v\n", err)
+		fmt.Printf("failed to create request: %v\n", err)
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 
 	resp, err := t.client.Do(req)
 	if err != nil {
-		fmt.Printf("✗ Tidal API request failed: %v\n", err)
+		fmt.Printf("Tidal API request failed: %v\n", err)
 		return "", fmt.Errorf("failed to get download URL: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		fmt.Printf("✗ Tidal API returned status code: %d\n", resp.StatusCode)
+		fmt.Printf("Tidal API returned status code: %d\n", resp.StatusCode)
 		return "", fmt.Errorf("API returned status code: %d", resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Printf("✗ Failed to read response body: %v\n", err)
+		fmt.Printf("Failed to read response body: %v\n", err)
 		return "", fmt.Errorf("failed to read response: %w", err)
 	}
 
 	var v2Response TidalAPIResponseV2
 	if err := json.Unmarshal(body, &v2Response); err == nil && v2Response.Data.Manifest != "" {
-		fmt.Println("✓ Tidal manifest found (v2 API)")
+		fmt.Println("Tidal manifest found (v2 API)")
 		return "MANIFEST:" + v2Response.Data.Manifest, nil
 	}
 
@@ -296,23 +297,23 @@ func (t *TidalDownloader) GetDownloadURL(trackID int64, quality string) (string,
 		if len(bodyStr) > 200 {
 			bodyStr = bodyStr[:200] + "..."
 		}
-		fmt.Printf("✗ Failed to decode Tidal API response: %v (response: %s)\n", err, bodyStr)
+		fmt.Printf("Failed to decode Tidal API response: %v (response: %s)\n", err, bodyStr)
 		return "", fmt.Errorf("failed to decode response: %w (response: %s)", err, bodyStr)
 	}
 
 	if len(apiResponses) == 0 {
-		fmt.Println("✗ Tidal API returned empty response")
+		fmt.Println("Tidal API returned empty response")
 		return "", fmt.Errorf("no download URL in response")
 	}
 
 	for _, item := range apiResponses {
 		if item.OriginalTrackURL != "" {
-			fmt.Println("✓ Tidal download URL found")
+			fmt.Println("Tidal download URL found")
 			return item.OriginalTrackURL, nil
 		}
 	}
 
-	fmt.Println("✗ No valid download URL in Tidal API response")
+	fmt.Println("No valid download URL in Tidal API response")
 	return "", fmt.Errorf("download URL not found in response")
 }
 
@@ -327,7 +328,8 @@ func (t *TidalDownloader) DownloadFile(url, filepath string, quality string) err
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	resp, err := t.client.Do(req)
+	downloadClient := &http.Client{Timeout: 5 * time.Minute}
+	resp, err := downloadClient.Do(req)
 
 	if err != nil {
 		return fmt.Errorf("failed to download file: %w", err)
@@ -570,8 +572,11 @@ func (t *TidalDownloader) DownloadByURL(tidalURL, outputDir, quality, filenameFo
 
 	downloadURL, err := t.GetDownloadURL(trackID, quality)
 	if err != nil {
+		if IsDownloadCancelledError(err) {
+			return outputFilename, err
+		}
 		if isTidalHiResQuality(quality) && allowFallback {
-			fmt.Println("⚠ HI_RES unavailable/failed, falling back to LOSSLESS...")
+			fmt.Println("HI_RES unavailable/failed, falling back to LOSSLESS...")
 			downloadURL, err = t.GetDownloadURL(trackID, "LOSSLESS")
 			if err != nil {
 				return outputFilename, fmt.Errorf("failed to get download URL (HI_RES & LOSSLESS both failed): %w", err)
@@ -590,7 +595,7 @@ func (t *TidalDownloader) DownloadByURL(tidalURL, outputDir, quality, filenameFo
 	finalizeTidalDownload(outputFilename, spotifyTrackName, spotifyArtistName, spotifyAlbumName, spotifyAlbumArtist, spotifyReleaseDate, spotifyCoverURL, embedMaxQualityCover, spotifyTrackNumber, spotifyDiscNumber, spotifyTotalTracks, spotifyTotalDiscs, spotifyCopyright, spotifyPublisher, spotifyComposer, metadataSeparator, isrcOverride, spotifyURL, useSingleGenre, embedGenre)
 
 	fmt.Println("Done")
-	fmt.Println("✓ Downloaded successfully from Tidal")
+	fmt.Println("Downloaded successfully from Tidal")
 	return outputFilename, nil
 }
 
@@ -621,12 +626,12 @@ func (t *TidalDownloader) DownloadByURLWithFallback(tidalURL, outputDir, quality
 		cleanupTidalDownloadArtifacts(outputFilename)
 		return outputFilename, err
 	}
-	fmt.Printf("✓ Downloaded using API: %s\n", successAPI)
+	fmt.Printf("Downloaded using API: %s\n", successAPI)
 
 	finalizeTidalDownload(outputFilename, spotifyTrackName, spotifyArtistName, spotifyAlbumName, spotifyAlbumArtist, spotifyReleaseDate, spotifyCoverURL, embedMaxQualityCover, spotifyTrackNumber, spotifyDiscNumber, spotifyTotalTracks, spotifyTotalDiscs, spotifyCopyright, spotifyPublisher, spotifyComposer, metadataSeparator, isrcOverride, spotifyURL, useSingleGenre, embedGenre)
 
 	fmt.Println("Done")
-	fmt.Println("✓ Downloaded successfully from Tidal")
+	fmt.Println("Downloaded successfully from Tidal")
 	return outputFilename, nil
 }
 
@@ -637,9 +642,6 @@ func (t *TidalDownloader) Download(spotifyTrackID, outputDir, quality, filenameF
 		return "", fmt.Errorf("songlink/songstats couldn't find Tidal URL: %w", err)
 	}
 
-	if t.apiURL == "" {
-		return "", fmt.Errorf("no configured custom tidal api instance")
-	}
 	return t.DownloadByURL(tidalURL, outputDir, quality, filenameFormat, includeTrackNumber, position, spotifyTrackName, spotifyArtistName, spotifyAlbumName, spotifyAlbumArtist, spotifyReleaseDate, useAlbumTrackNumber, spotifyCoverURL, embedMaxQualityCover, spotifyTrackNumber, spotifyDiscNumber, spotifyTotalTracks, spotifyTotalDiscs, spotifyCopyright, spotifyPublisher, spotifyComposer, metadataSeparator, isrcOverride, spotifyURL, allowFallback, useFirstArtistOnly, useSingleGenre, embedGenre)
 }
 
@@ -820,7 +822,7 @@ func (t *TidalDownloader) downloadWithRotatingAPIs(trackID int64, outputFilename
 	var lastErr error
 	for idx, candidateQuality := range qualities {
 		if idx > 0 {
-			fmt.Printf("⚠ %s unavailable/failed on all APIs, falling back to %s...\n", quality, candidateQuality)
+			fmt.Printf("%s unavailable/failed on all APIs, falling back to %s...\n", quality, candidateQuality)
 		}
 
 		apiURL, err := t.tryDownloadAcrossTidalAPIs(trackID, outputFilename, candidateQuality, false)
@@ -875,7 +877,7 @@ func (t *TidalDownloader) tryDownloadAcrossTidalAPIs(trackID int64, outputFilena
 
 	fmt.Println("All Tidal APIs failed:")
 	for _, item := range errors {
-		fmt.Printf("  ✗ %s\n", item)
+		fmt.Printf("  %s\n", item)
 	}
 
 	return "", fmt.Errorf("all tidal apis failed for quality %s: %w", quality, lastErr)

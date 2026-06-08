@@ -201,9 +201,9 @@ export function OtherProjects() {
                 {repoStats["SpotiFLAC-Next"] && (<CardContent className={`${projectCardContentClass} space-y-2`}>
                     {repoStats["SpotiFLAC-Next"].languages?.length > 0 && (<div className="flex flex-wrap gap-2 text-xs">
                         {repoStats["SpotiFLAC-Next"].languages.map((lang: string) => (<span key={lang} className="px-2 py-0.5 rounded-full font-medium" style={{
-                            backgroundColor: getLangColor(lang) + "20",
-                            color: getLangColor(lang),
-                        }}>
+                        backgroundColor: getLangColor(lang) + "20",
+                        color: getLangColor(lang),
+                    }}>
                             {lang}
                           </span>))}
                       </div>)}
@@ -255,9 +255,9 @@ export function OtherProjects() {
                 {repoStats["Twitter-X-Media-Batch-Downloader"] && (<CardContent className={`${projectCardContentClass} space-y-2`}>
                     <div className="flex flex-wrap gap-2 text-xs">
                       {repoStats["Twitter-X-Media-Batch-Downloader"].languages?.map((lang: string) => (<span key={lang} className="px-2 py-0.5 rounded-full font-medium" style={{
-                        backgroundColor: getLangColor(lang) + "20",
-                        color: getLangColor(lang),
-                    }}>
+                    backgroundColor: getLangColor(lang) + "20",
+                    color: getLangColor(lang),
+                }}>
                           {lang}
                         </span>))}
                     </div>
@@ -273,19 +273,19 @@ export function OtherProjects() {
                       <span className="flex items-center gap-1">
                         <Clock className="h-3.5 w-3.5"/>{" "}
                         {formatTimeAgo(repoStats["Twitter-X-Media-Batch-Downloader"]
-                    .createdAt)}
+                .createdAt)}
                       </span>
                     </div>
                     <div className="flex flex-col gap-1 text-xs text-muted-foreground items-start">
                       <span className="flex items-center gap-1">
                         <Download className="h-3.5 w-3.5"/> TOTAL:{" "}
                         {formatNumber(repoStats["Twitter-X-Media-Batch-Downloader"]
-                    .totalDownloads)}
+                .totalDownloads)}
                       </span>
                       <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
                         <Download className="h-3.5 w-3.5"/> LATEST:{" "}
                         {formatNumber(repoStats["Twitter-X-Media-Batch-Downloader"]
-                    .latestDownloads)}
+                .latestDownloads)}
                       </span>
                     </div>
                   </CardContent>)}

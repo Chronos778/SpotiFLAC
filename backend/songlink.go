@@ -420,17 +420,17 @@ func mergeSongLinkResponse(links *resolvedTrackLinks, resp *songLinkAPIResponse)
 
 	if link, ok := resp.LinksByPlatform["tidal"]; ok && link.URL != "" && links.TidalURL == "" {
 		links.TidalURL = strings.TrimSpace(link.URL)
-		fmt.Println("✓ Tidal URL found")
+		fmt.Println("Tidal URL found")
 	}
 
 	if link, ok := resp.LinksByPlatform["amazonMusic"]; ok && link.URL != "" && links.AmazonURL == "" {
 		links.AmazonURL = normalizeAmazonMusicURL(link.URL)
-		fmt.Println("✓ Amazon URL found")
+		fmt.Println("Amazon URL found")
 	}
 
 	if link, ok := resp.LinksByPlatform["deezer"]; ok && link.URL != "" && links.DeezerURL == "" {
 		links.DeezerURL = normalizeDeezerTrackURL(link.URL)
-		fmt.Println("✓ Deezer URL found")
+		fmt.Println("Deezer URL found")
 	}
 }
 

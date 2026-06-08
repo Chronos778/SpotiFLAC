@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { StopCircle } from "lucide-react";
+import { StopCircle, Clock } from "lucide-react";
+import { useDownloadProgress } from "@/hooks/useDownloadProgress";
 interface DownloadProgressProps {
     progress: number;
     remainingCount?: number;
@@ -11,6 +12,9 @@ interface DownloadProgressProps {
     onStop: () => void;
 }
 export function DownloadProgress({ progress, remainingCount = 0, currentTrack, onStop }: DownloadProgressProps) {
+    const liveProgress = useDownloadProgress();
+    const isRateLimited = Boolean(liveProgress.rate_limited) && (liveProgress.rate_limit_secs ?? 0) > 0;
+    const rateLimitSecs = liveProgress.rate_limit_secs ?? 0;
     const clampedProgress = Math.min(100, Math.max(0, progress));
     const safeRemainingCount = Math.max(0, remainingCount);
     const remainingLabel = `${safeRemainingCount.toLocaleString()} ${safeRemainingCount === 1 ? "track" : "tracks"} left`;
@@ -22,11 +26,14 @@ export function DownloadProgress({ progress, remainingCount = 0, currentTrack, o
           Stop
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground">
+      {isRateLimited ? (<p className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+          <Clock className="h-3.5 w-3.5 shrink-0"/>
+          Rate limited, please wait. Retrying in {rateLimitSecs}s...
+        </p>) : (<p className="text-xs text-muted-foreground">
         {clampedProgress}% • {remainingLabel} -{" "}
         {currentTrack
-            ? `${currentTrack.name} - ${currentTrack.artists}`
-            : "Preparing download..."}
-      </p>
+                ? `${currentTrack.name} - ${currentTrack.artists}`
+                : "Preparing download..."}
+      </p>)}
     </div>);
 }

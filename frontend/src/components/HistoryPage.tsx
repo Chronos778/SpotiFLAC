@@ -75,6 +75,7 @@ interface FetchHistoryItem {
     info: string;
     image: string;
     data: string;
+    is_explicit?: boolean;
     timestamp: number;
 }
 interface HistoryPageProps {
@@ -566,7 +567,10 @@ export function HistoryPage({ onHistorySelect }: HistoryPageProps) {
                                                             {item.type.slice(0, 2).toUpperCase()}
                                                         </div>)}
                                                 </div>
-                                                <span className="font-medium text-sm truncate">{item.name}</span>
+                                                <span className="font-medium text-sm truncate flex items-center gap-2">
+                                                    {item.is_explicit && (<span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded bg-red-600 text-[10px] text-white" title="Explicit">E</span>)}
+                                                    <span className="truncate">{item.name}</span>
+                                                </span>
                                             </div>
                                         </td>
                                         <td className="p-3 align-middle text-sm text-muted-foreground hidden md:table-cell">

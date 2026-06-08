@@ -12,7 +12,7 @@ import { useState } from "react";
 import { toastWithSound as toast } from "@/lib/toast-with-sound";
 import { joinPath, sanitizePath } from "@/lib/utils";
 import { parseTemplate, type TemplateData } from "@/lib/settings";
-import { buildClickableArtists, splitArtistNames } from "@/lib/artist-links";
+import { buildClickableArtists, splitArtistNames, getClickableArtistKey } from "@/lib/artist-links";
 import type { TrackMetadata, TrackAvailability } from "@/types/api";
 interface AlbumInfoProps {
     albumInfo: {
@@ -21,6 +21,7 @@ interface AlbumInfoProps {
         images: string;
         release_date: string;
         total_tracks: number;
+        is_explicit?: boolean;
         artist_id?: string;
         artist_url?: string;
     };
@@ -206,18 +207,21 @@ export function AlbumInfo({ albumInfo, trackList, searchQuery, sortBy, selectedT
               </div>)}
             <div className="flex-1 space-y-4">
               <div className="space-y-2">
-                <p className="text-sm font-medium">Album</p>
+                <p className="text-sm font-medium flex items-center gap-2">
+                  {albumInfo.is_explicit && (<span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded bg-red-600 text-[10px] text-white" title="Explicit">E</span>)}
+                  <span>Album</span>
+                </p>
                 <h2 className="text-4xl font-bold">{albumInfo.name}</h2>
                 <div className="flex items-center gap-2 text-sm">
                   <span className="font-medium">
-                    {clickableAlbumArtists.length > 0 ? clickableAlbumArtists.map((artist, index) => (<span key={`${artist.id || artist.name}-${index}`}>
-                          {onArtistClick && artist.external_urls ? (<span className="cursor-pointer hover:underline" onClick={() => onArtistClick({
+                    {clickableAlbumArtists.length > 0 ? clickableAlbumArtists.map((artist, index) => (<span key={getClickableArtistKey(artist)}>
+                          {onArtistClick && artist.external_urls ? (<button type="button" className="cursor-pointer rounded-sm bg-transparent p-0 text-inherit hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" onClick={() => onArtistClick({
                     id: artist.id,
                     name: artist.name,
                     external_urls: artist.external_urls,
                 })}>
                               {artist.name}
-                            </span>) : (artist.name)}
+                            </button>) : (artist.name)}
                           {index < clickableAlbumArtists.length - 1 && artistSeparator}
                         </span>)) : albumInfo.artists}
                   </span>

@@ -7,7 +7,6 @@ import KofiSvg from "@/assets/kofi_symbol.svg";
 import PatreonLogo from "@/assets/patreon.svg";
 import PatreonSymbol from "@/assets/patreon_symbol.svg";
 import UsdtBarcode from "@/assets/usdt.jpg";
-
 export function SupportPage() {
     const [copiedUsdt, setCopiedUsdt] = useState(false);
     const [copiedEmail, setCopiedEmail] = useState(false);

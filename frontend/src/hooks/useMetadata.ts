@@ -159,6 +159,7 @@ export function useMetadata() {
                 info: info,
                 image: image,
                 data: jsonStr,
+                is_explicit: ("track" in data && Boolean(data.track.is_explicit)) || ("album_info" in data && Boolean(data.album_info.is_explicit)),
                 timestamp: Math.floor(Date.now() / 1000)
             });
         }

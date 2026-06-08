@@ -5,12 +5,14 @@ import { Search, X, ArrowUp } from "lucide-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { getSettings, getSettingsWithDefaults, loadSettings, saveSettings, applyThemeMode, applyFont } from "@/lib/settings";
 import { applyTheme } from "@/lib/themes";
+import { openExternal } from "@/lib/utils";
 import { OpenFolder, CheckFFmpegInstalled, DownloadFFmpeg, GetRecentFetches, SaveRecentFetches } from "../wailsjs/go/main/App";
 import { EventsOn, EventsOff, Quit } from "../wailsjs/runtime/runtime";
 import { toastWithSound as toast } from "@/lib/toast-with-sound";
 import { TitleBar } from "@/components/TitleBar";
 import { Sidebar, type PageType } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
+import { MarkdownLite, extractMarkdownSection } from "@/components/MarkdownLite";
 import { SearchBar } from "@/components/SearchBar";
 import { TrackInfo } from "@/components/TrackInfo";
 import { AlbumInfo } from "@/components/AlbumInfo";
@@ -22,6 +24,7 @@ import { AudioAnalysisPage } from "@/components/AudioAnalysisPage";
 import { AudioConverterPage } from "@/components/AudioConverterPage";
 import { AudioResamplerPage } from "@/components/AudioResamplerPage";
 import { FileManagerPage } from "@/components/FileManagerPage";
+import { LyricsManagerPage } from "@/components/LyricsManagerPage";
 import { SettingsPage } from "@/components/SettingsPage";
 import { DebugLoggerPage } from "@/components/DebugLoggerPage";
 import { OtherProjects } from "@/components/OtherProjects";
@@ -134,6 +137,12 @@ function App() {
     const [currentListPage, setCurrentListPage] = useState(1);
     const [hasUpdate, setHasUpdate] = useState(false);
     const [releaseDate, setReleaseDate] = useState<string | null>(null);
+    const [updateInfo, setUpdateInfo] = useState<{
+        version: string;
+        changelog: string;
+        url: string;
+    } | null>(null);
+    const [showUpdateDialog, setShowUpdateDialog] = useState(false);
     const [fetchHistory, setFetchHistory] = useState<HistoryItem[]>([]);
     const [isSearchMode, setIsSearchMode] = useState(false);
     const [region, setRegion] = useState(() => localStorage.getItem("spotiflac_region") || "US");
@@ -238,14 +247,24 @@ function App() {
     }, [metadata.metadata]);
     const checkForUpdates = async () => {
         try {
-            const response = await fetch("https://api.github.com/repos/afkarxyz/SpotiFLAC/releases/latest");
+            const response = await fetch("https://api.github.com/repos/spotbye/SpotiFLAC/releases/latest");
             const data = await response.json();
-            const latestVersion = data.tag_name?.replace(/^v/, "") || "";
+            const rawTag = data.tag_name || "";
+            const latestVersion = rawTag.replace(/^v/, "") || "";
             if (data.published_at) {
                 setReleaseDate(data.published_at);
             }
             if (latestVersion && latestVersion > CURRENT_VERSION) {
                 setHasUpdate(true);
+                setUpdateInfo({
+                    version: latestVersion,
+                    changelog: extractMarkdownSection(data.body || "", "Changelog"),
+                    url: `https://github.com/spotbye/SpotiFLAC/releases/tag/${rawTag}`,
+                });
+                const dismissedVersion = localStorage.getItem("spotiflac_update_dismissed_version");
+                if (dismissedVersion !== latestVersion) {
+                    setShowUpdateDialog(true);
+                }
             }
         }
         catch (err) {
@@ -363,6 +382,7 @@ function App() {
                 name: track.name,
                 artist: track.artists,
                 image: track.images,
+                is_explicit: track.is_explicit,
             };
         }
         else if ("album_info" in metadata.metadata) {
@@ -373,6 +393,7 @@ function App() {
                 name: album_info.name,
                 artist: `${album_info.total_tracks.toLocaleString()} tracks`,
                 image: album_info.images,
+                is_explicit: album_info.is_explicit,
             };
         }
         else if ("playlist_info" in metadata.metadata) {
@@ -546,6 +567,8 @@ function App() {
                 return <AudioResamplerPage />;
             case "file-manager":
                 return <FileManagerPage />;
+            case "lyrics-manager":
+                return <LyricsManagerPage />;
             default:
                 return (<>
                     <Header version={CURRENT_VERSION} hasUpdate={hasUpdate} releaseDate={releaseDate}/>
@@ -625,6 +648,43 @@ function App() {
                 <ArrowUp className="h-5 w-5"/>
             </Button>)}
 
+
+            <Dialog open={showUpdateDialog} onOpenChange={setShowUpdateDialog}>
+              <DialogContent className="sm:max-w-125 [&>button]:hidden">
+                <DialogHeader>
+                  <DialogTitle>Update Available</DialogTitle>
+                  <DialogDescription>
+                    A new version{updateInfo ? ` (v${updateInfo.version})` : ""} is available. You're on v{CURRENT_VERSION}.
+                  </DialogDescription>
+                </DialogHeader>
+                {updateInfo?.changelog ? (<div className="max-h-72 overflow-y-auto rounded-md border bg-muted/40 p-3 custom-scrollbar">
+                    <MarkdownLite content={updateInfo.changelog}/>
+                  </div>) : (<p className="text-sm text-muted-foreground">No changelog provided for this release.</p>)}
+                <DialogFooter className="gap-2 sm:justify-between">
+                  <Button variant="ghost" onClick={() => {
+            if (updateInfo) {
+                localStorage.setItem("spotiflac_update_dismissed_version", updateInfo.version);
+            }
+            setShowUpdateDialog(false);
+        }}>
+                    Don't Show
+                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => setShowUpdateDialog(false)}>
+                      Download Later
+                    </Button>
+                    <Button onClick={() => {
+            if (updateInfo) {
+                openExternal(updateInfo.url);
+            }
+            setShowUpdateDialog(false);
+        }}>
+                      Download Now
+                    </Button>
+                  </div>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
             <Dialog open={showUnsavedChangesDialog} onOpenChange={setShowUnsavedChangesDialog}>
                 <DialogContent className="sm:max-w-106.25 [&>button]:hidden">

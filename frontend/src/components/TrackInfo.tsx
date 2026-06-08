@@ -6,7 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger, } from "@/components/ui/toolti
 import type { TrackMetadata, TrackAvailability } from "@/types/api";
 import { usePreview } from "@/hooks/usePreview";
 import { AvailabilityLinks, hasAvailabilityLinks } from "./AvailabilityLinks";
-import { buildClickableArtists } from "@/lib/artist-links";
+import { buildClickableArtists, getClickableArtistKey } from "@/lib/artist-links";
 interface TrackInfoProps {
     track: TrackMetadata & {
         album_name: string;
@@ -83,14 +83,14 @@ export function TrackInfo({ track, isDownloading, downloadingTrack, isDownloaded
               {isSkipped ? (<FileCheck className="h-6 w-6 text-yellow-500 shrink-0"/>) : isDownloaded ? (<CheckCircle className="h-6 w-6 text-green-500 shrink-0"/>) : isFailed ? (<XCircle className="h-6 w-6 text-red-500 shrink-0"/>) : null}
             </div>
             <p className="text-lg text-muted-foreground">
-              {clickableArtists.length > 0 ? clickableArtists.map((artist, index) => (<span key={`${artist.id || artist.name}-${index}`}>
-                    {onArtistClick ? (<span className="cursor-pointer hover:underline" onClick={() => onArtistClick({
+              {clickableArtists.length > 0 ? clickableArtists.map((artist, index) => (<span key={getClickableArtistKey(artist)}>
+                    {onArtistClick ? (<button type="button" className="cursor-pointer rounded-sm bg-transparent p-0 text-inherit hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" onClick={() => onArtistClick({
                     id: artist.id,
                     name: artist.name,
                     external_urls: artist.external_urls,
                 })}>
                         {artist.name}
-                      </span>) : (artist.name)}
+                      </button>) : (artist.name)}
                     {index < clickableArtists.length - 1 && ", "}
                   </span>)) : track.artists}
             </p>
@@ -99,13 +99,13 @@ export function TrackInfo({ track, isDownloading, downloadingTrack, isDownloaded
             <div className="space-y-1">
               <div>
                 <p className="text-xs text-muted-foreground">Album</p>
-                <p className="font-medium truncate">{hasAlbumClick ? (<span className="cursor-pointer hover:underline" onClick={() => onAlbumClick?.({
+                <p className="font-medium truncate">{hasAlbumClick ? (<button type="button" className="cursor-pointer rounded-sm bg-transparent p-0 text-left text-inherit hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" onClick={() => onAlbumClick?.({
                 id: track.album_id!,
                 name: track.album_name,
                 external_urls: track.album_url!,
             })}>
                     {track.album_name}
-                  </span>) : (track.album_name)}</p>
+                  </button>) : (track.album_name)}</p>
               </div>
               {track.plays && (<div>
                 <p className="text-xs text-muted-foreground">Total Plays</p>

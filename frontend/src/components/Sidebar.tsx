@@ -6,6 +6,7 @@ import { ActivityIcon, type ActivityIconHandle } from "@/components/ui/activity"
 import { TerminalIcon } from "@/components/ui/terminal";
 import { FileMusicIcon, type FileMusicIconHandle } from "@/components/ui/file-music";
 import { FilePenIcon, type FilePenIconHandle } from "@/components/ui/file-pen";
+import { FileTextIcon, type FileTextIconHandle } from "@/components/ui/file-text";
 import { BugReportIcon } from "@/components/ui/bug-report-icon";
 import { CoffeeIcon } from "@/components/ui/coffee";
 import { BlocksIcon } from "@/components/ui/blocks-icon";
@@ -17,7 +18,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger, } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { openExternal } from "@/lib/utils";
-export type PageType = "main" | "settings" | "debug" | "audio-analysis" | "audio-converter" | "audio-resampler" | "file-manager" | "projects" | "support" | "history";
+export type PageType = "main" | "settings" | "debug" | "audio-analysis" | "audio-converter" | "audio-resampler" | "file-manager" | "lyrics-manager" | "projects" | "support" | "history";
 interface SidebarProps {
     currentPage: PageType;
     onPageChange: (page: PageType) => void;
@@ -33,6 +34,7 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
     const resamplerIconRef = useRef<AudioLinesIconHandle>(null);
     const converterIconRef = useRef<FileMusicIconHandle>(null);
     const fileManagerIconRef = useRef<FilePenIconHandle>(null);
+    const lyricsManagerIconRef = useRef<FileTextIconHandle>(null);
     const handleIssuesDialogChange = (open: boolean) => {
         setIsIssuesDialogOpen(open);
         if (!open) {
@@ -99,7 +101,7 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
                     <Tooltip delayDuration={0}>
                         <DropdownMenuTrigger asChild>
                             <TooltipTrigger asChild>
-                                <Button variant={["audio-analysis", "audio-converter", "audio-resampler", "file-manager"].includes(currentPage) ? "secondary" : "ghost"} size="icon" className={`h-10 w-10 ${["audio-analysis", "audio-converter", "audio-resampler", "file-manager"].includes(currentPage) ? "bg-primary/10 text-primary hover:bg-primary/20" : "hover:bg-primary/10 hover:text-primary"}`}>
+                                <Button variant={["audio-analysis", "audio-converter", "audio-resampler", "file-manager", "lyrics-manager"].includes(currentPage) ? "secondary" : "ghost"} size="icon" className={`h-10 w-10 ${["audio-analysis", "audio-converter", "audio-resampler", "file-manager", "lyrics-manager"].includes(currentPage) ? "bg-primary/10 text-primary hover:bg-primary/20" : "hover:bg-primary/10 hover:text-primary"}`}>
                                     <ToolCaseIcon size={20}/>
                                 </Button>
                             </TooltipTrigger>
@@ -124,6 +126,10 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
                         <DropdownMenuItem onClick={() => onPageChange("file-manager")} className="gap-3 cursor-pointer py-2 px-3" {...getAnimatedItemHandlers(fileManagerIconRef)}>
                             <FilePenIcon ref={fileManagerIconRef} size={16}/>
                             <span>File Manager</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onPageChange("lyrics-manager")} className="gap-3 cursor-pointer py-2 px-3" {...getAnimatedItemHandlers(lyricsManagerIconRef)}>
+                            <FileTextIcon ref={lyricsManagerIconRef} size={16}/>
+                            <span>Lyrics Manager</span>
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>

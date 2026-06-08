@@ -604,14 +604,22 @@ export function SearchBar({ url, loading, onUrlChange, onFetch, onFetchUrl, hist
 
         {!searchMode && (<>
             {showRegionSelector && (<Select value={region} onValueChange={onRegionChange}>
-                <SelectTrigger className="w-[70px] shrink-0">
-                  <SelectValue placeholder="Region"/>
+                <SelectTrigger className="w-22.5 shrink-0">
+                  <SelectValue placeholder="Region">
+                    <span className="flex items-center gap-1.5">
+                      <img src={`/assets/flags/${region.toLowerCase()}.svg`} alt={region} className="h-3 w-4 rounded-[1px] object-cover shrink-0"/>
+                      {region}
+                    </span>
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">
                   {REGIONS.map((r) => (<SelectItem key={r} value={r} textValue={r}>
-                      {r}{" "}
-                      <span className="text-muted-foreground">
-                        ({getRegionName(r)})
+                      <span className="flex items-center gap-1.5">
+                        <img src={`/assets/flags/${r.toLowerCase()}.svg`} alt="" className="h-3 w-4 rounded-[1px] object-cover shrink-0"/>
+                        {r}{" "}
+                        <span className="text-muted-foreground">
+                          ({getRegionName(r)})
+                        </span>
                       </span>
                     </SelectItem>))}
                 </SelectContent>

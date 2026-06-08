@@ -26,10 +26,6 @@ Download Spotify Tracks, Albums, Playlists & Discography as MP3/OGG/Opus.
 
 ## Related projects
 
-> [!NOTE]
->
-> Related projects are maintained by the community and are not affiliated with the core SpotiFLAC desktop build.
-
 ### [SpotiFLAC (Mobile)](https://github.com/zarzet/SpotiFLAC-Mobile)
 
 SpotiFLAC for Android & iOS — maintained by [@zarzet](https://github.com/zarzet)
@@ -110,7 +106,7 @@ The software is provided "as is", without warranty of any kind. The author assum
 
 ## API Credits
 
-[MusicBrainz](https://musicbrainz.org) · [LRCLIB](https://lrclib.net) · [Songlink/Odesli](https://song.link) · [hifi-api](https://github.com/binimum/hifi-api) · [WJHE](https://music.wjhe.top) · [GDStudio](https://music.gdstudio.xyz) · [MusicDL](https://musicdl.me)
+[MusicBrainz](https://musicbrainz.org) · [LRCLIB](https://lrclib.net) · [Songlink/Odesli](https://song.link) · [Songstats](https://songstats.com) · [hifi-api](https://github.com/binimum/hifi-api) · [Qobuz-DL](https://github.com/QobuzDL/Qobuz-DL)
 
 > [!TIP]
 >

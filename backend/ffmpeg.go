@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -373,7 +374,7 @@ func InstallFFmpegWithBrew(progressCallback func(int, string)) error {
 	return nil
 }
 
-const ffmpegReleaseBaseURL = "https://github.com/afkarxyz/ffmpeg-binaries/releases/download/v8.1"
+const ffmpegReleaseBaseURL = "https://github.com/spotbye/Dependencies/releases/download/FFmpeg-8.1"
 
 func buildFFmpegReleaseURL(assetName string) string {
 	return ffmpegReleaseBaseURL + "/" + assetName
@@ -870,6 +871,36 @@ func ConvertAudio(req ConvertAudioRequest) ([]ConvertAudioResult, error) {
 						"-map", "0:a",
 					)
 				}
+			case "wav", "aiff":
+				sampleFmt, rawBits := pcmSampleFormatForInput(inputFile)
+				pcmCodec := "pcm_s16le"
+				if req.OutputFormat == "aiff" {
+					pcmCodec = "pcm_s16be"
+				}
+				if sampleFmt == "s32" {
+					if req.OutputFormat == "aiff" {
+						pcmCodec = "pcm_s24be"
+					} else {
+						pcmCodec = "pcm_s24le"
+					}
+				}
+				args = append(args,
+					"-codec:a", pcmCodec,
+					"-map", "0:a",
+				)
+				if rawBits > 0 {
+					args = append(args, "-bits_per_raw_sample", strconv.Itoa(rawBits))
+				}
+			case "opus":
+				bitrate := req.Bitrate
+				if bitrate == "" {
+					bitrate = "192k"
+				}
+				args = append(args,
+					"-codec:a", "libopus",
+					"-b:a", bitrate,
+					"-map", "0:a",
+				)
 			}
 
 			args = append(args, outputFile)
@@ -922,6 +953,13 @@ func ConvertAudio(req ConvertAudioRequest) ([]ConvertAudioResult, error) {
 
 	wg.Wait()
 	return results, nil
+}
+
+func pcmSampleFormatForInput(inputFile string) (sampleFmt string, rawBits int) {
+	if meta, err := GetTrackMetadata(inputFile); err == nil && meta != nil && meta.BitsPerSample > 16 {
+		return "s32", 24
+	}
+	return "s16", 0
 }
 
 type AudioFileInfo struct {

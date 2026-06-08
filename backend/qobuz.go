@@ -22,7 +22,12 @@ import (
 )
 
 type QobuzDownloader struct {
-	client *http.Client
+	client    *http.Client
+	customURL string
+}
+
+func (q *QobuzDownloader) SetCustomAPIURL(apiURL string) {
+	q.customURL = strings.TrimRight(strings.TrimSpace(apiURL), "/")
 }
 
 type QobuzTrack struct {
@@ -754,7 +759,33 @@ func (q *QobuzDownloader) GetDownloadURL(trackID int64, quality string, allowFal
 
 	fmt.Printf("Getting download URL for track ID: %d with requested quality: %s\n", trackID, qualityCode)
 
+	if strings.TrimSpace(q.customURL) != "" {
+		fmt.Printf("Trying custom Qobuz instance...\n")
+		url, err := q.getQobuzCustomDownloadURL(trackID, qualityCode)
+		if err == nil {
+			fmt.Printf("Success (custom Qobuz instance)\n")
+			return url, nil
+		}
+		if IsDownloadCancelledError(err) {
+			return "", err
+		}
+		fmt.Printf("Custom Qobuz instance failed: %v\n", err)
+		if !allowFallback {
+			return "", err
+		}
+
+	}
+
 	downloadFunc := func(qual string) (string, error) {
+		if url, err := q.getQobuzCommunityDownloadURL(trackID, qual); err == nil {
+			fmt.Printf("Success (community qbz-a)\n")
+			return url, nil
+		} else if IsDownloadCancelledError(err) {
+			return "", err
+		} else {
+			fmt.Printf("Community qbz-a failed: %v\n", err)
+		}
+
 		attemptMap := make(map[string]qobuzProviderAttempt)
 		attemptIDs := make([]string, 0, len(GetQobuzDownloadProviderURLs()))
 		for _, provider := range q.getQobuzDownloadProviders() {
@@ -777,7 +808,7 @@ func (q *QobuzDownloader) GetDownloadURL(trackID int64, quality string, allowFal
 
 			url, err := attempt.Download()
 			if err == nil {
-				fmt.Printf("✓ Success\n")
+				fmt.Printf("Success\n")
 				recordProviderSuccess("qobuz", attempt.ID)
 				return url, nil
 			}
@@ -793,26 +824,35 @@ func (q *QobuzDownloader) GetDownloadURL(trackID int64, quality string, allowFal
 	if err == nil {
 		return url, nil
 	}
+	if IsDownloadCancelledError(err) {
+		return "", err
+	}
 
 	currentQuality := qualityCode
 
 	if currentQuality == "27" && allowFallback {
-		fmt.Printf("⚠ Download with quality 27 failed, trying fallback to 7 (24-bit Standard)...\n")
+		fmt.Printf("Download with quality 27 failed, trying fallback to 7 (24-bit Standard)...\n")
 		url, err := downloadFunc("7")
 		if err == nil {
-			fmt.Println("✓ Success with fallback quality 7")
+			fmt.Println("Success with fallback quality 7")
 			return url, nil
+		}
+		if IsDownloadCancelledError(err) {
+			return "", err
 		}
 
 		currentQuality = "7"
 	}
 
 	if currentQuality == "7" && allowFallback {
-		fmt.Printf("⚠ Download with quality 7 failed, trying fallback to 6 (16-bit Lossless)...\n")
+		fmt.Printf("Download with quality 7 failed, trying fallback to 6 (16-bit Lossless)...\n")
 		url, err := downloadFunc("6")
 		if err == nil {
-			fmt.Println("✓ Success with fallback quality 6")
+			fmt.Println("Success with fallback quality 6")
 			return url, nil
+		}
+		if IsDownloadCancelledError(err) {
+			return "", err
 		}
 	}
 
@@ -978,7 +1018,7 @@ func (q *QobuzDownloader) DownloadTrackWithISRC(isrc, outputDir, quality, filena
 			} else {
 				fmt.Println("Fetching MusicBrainz metadata...")
 				if fetchedMeta, err := FetchMusicBrainzMetadata(isrc, spotifyTrackName, spotifyArtistName, spotifyAlbumName, useSingleGenre, embedGenre); err == nil {
-					fmt.Println("✓ MusicBrainz metadata fetched")
+					fmt.Println("MusicBrainz metadata fetched")
 					metaChan <- fetchedMeta
 				} else {
 					fmt.Printf("Warning: Failed to fetch MusicBrainz metadata: %v\n", err)

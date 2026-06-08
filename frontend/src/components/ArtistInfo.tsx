@@ -36,6 +36,7 @@ interface ArtistInfoProps {
         album_type: string;
         external_urls: string;
         total_tracks?: number;
+        is_explicit?: boolean;
     }>;
     trackList: TrackMetadata[];
     searchQuery: string;
@@ -475,7 +476,7 @@ export function ArtistInfo({ artistInfo, albumList, trackList, searchQuery, sort
             </Tooltip>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {artistInfo.gallery!.map((imageUrl, index) => (<div key={index} className="relative group">
+            {artistInfo.gallery!.map((imageUrl, index) => (<div key={`${imageUrl}-${index}`} className="relative group">
                 <div className="relative aspect-square rounded-md overflow-hidden shadow-md">
                   <img src={imageUrl} alt={`${artistInfo.name} gallery ${index + 1}`} className="w-full h-full object-cover"/>
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center">
@@ -537,7 +538,10 @@ export function ArtistInfo({ artistInfo, albumList, trackList, searchQuery, sort
                     </span>
                   </div>
                 </div>
-                <h4 className="font-semibold truncate text-sm">{album.name}</h4>
+                <h4 className="font-semibold truncate text-sm flex items-center gap-2">
+                  {album.is_explicit && (<span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded bg-red-600 text-[10px] text-white" title="Explicit">E</span>)}
+                  <span className="truncate">{album.name}</span>
+                </h4>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
                     <span>{album.release_date?.split("-")[0]}</span>
                     {album.total_tracks && (<>

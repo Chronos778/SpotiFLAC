@@ -9,9 +9,9 @@ import { Tooltip, TooltipContent, TooltipTrigger, } from "@/components/ui/toolti
 import { FolderOpen, Save, RotateCcw, Info, ArrowRight, MonitorCog, FolderCog, Router, FolderLock, Plus, Trash2, ExternalLink, PlugZap, Download, Tags } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { getSettings, getSettingsWithDefaults, saveSettings, resetToDefaultSettings, applyThemeMode, applyFont, getFontOptions, parseGoogleFontUrl, loadGoogleFontUrl, loadCustomFonts, saveCustomFonts, FOLDER_PRESETS, FILENAME_PRESETS, TEMPLATE_VARIABLES, hasConfiguredCustomTidalApi, sanitizeAutoOrder, type Settings as SettingsType, type FontFamily, type CustomFontFamily, type FolderPreset, type FilenamePreset, type ExistingFileCheckMode, } from "@/lib/settings";
+import { getSettings, getSettingsWithDefaults, saveSettings, resetToDefaultSettings, applyThemeMode, applyFont, getFontOptions, parseGoogleFontUrl, loadGoogleFontUrl, loadCustomFonts, saveCustomFonts, FOLDER_PRESETS, FILENAME_PRESETS, TEMPLATE_VARIABLES, sanitizeAutoOrder, type Settings as SettingsType, type FontFamily, type CustomFontFamily, type FolderPreset, type FilenamePreset, type ExistingFileCheckMode, } from "@/lib/settings";
 import { themes, applyTheme } from "@/lib/themes";
-import { SelectFolder, OpenConfigFolder, CheckCustomTidalAPI } from "../../wailsjs/go/main/App";
+import { SelectFolder, OpenConfigFolder, CheckCustomTidalAPI, CheckCustomQobuzAPI } from "../../wailsjs/go/main/App";
 import { toastWithSound as toast } from "@/lib/toast-with-sound";
 import { openExternal } from "@/lib/utils";
 import { ApiStatusTab } from "./ApiStatusTab";
@@ -28,16 +28,15 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
     const [showResetConfirm, setShowResetConfirm] = useState(false);
     const [showAddFontDialog, setShowAddFontDialog] = useState(false);
     const [showCustomTidalApiDialog, setShowCustomTidalApiDialog] = useState(false);
+    const [showCustomQobuzApiDialog, setShowCustomQobuzApiDialog] = useState(false);
     const [addFontUrl, setAddFontUrl] = useState("");
     const [customTidalApiStatus, setCustomTidalApiStatus] = useState<CustomTidalApiStatus>("idle");
+    const [customQobuzApiStatus, setCustomQobuzApiStatus] = useState<CustomTidalApiStatus>("idle");
     const parsedAddFont = parseGoogleFontUrl(addFontUrl);
     const fontOptions = getFontOptions(tempSettings.customFonts);
     const hasUnsavedChanges = JSON.stringify(savedSettings) !== JSON.stringify(tempSettings);
-    const hasCustomTidalInstanceConfigured = hasConfiguredCustomTidalApi(tempSettings.customTidalApi);
-    const effectiveDownloader = !hasCustomTidalInstanceConfigured && tempSettings.downloader === "tidal"
-        ? "auto"
-        : tempSettings.downloader;
-    const effectiveAutoOrder = sanitizeAutoOrder(tempSettings.autoOrder, hasCustomTidalInstanceConfigured);
+    const effectiveDownloader = tempSettings.downloader;
+    const effectiveAutoOrder = sanitizeAutoOrder(tempSettings.autoOrder);
     const resetToSaved = useCallback(() => {
         const freshSavedSettings = getSettings();
         flushSync(() => {
@@ -180,6 +179,9 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
     const handleQobuzQualityChange = (value: "6" | "7" | "27") => {
         setTempSettings((prev) => ({ ...prev, qobuzQuality: value }));
     };
+    const handleAmazonQualityChange = (value: "16" | "24") => {
+        setTempSettings((prev) => ({ ...prev, amazonQuality: value }));
+    };
     const handleAutoQualityChange = async (value: "16" | "24") => {
         setTempSettings((prev) => ({ ...prev, autoQuality: value }));
     };
@@ -196,10 +198,21 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
         setTempSettings((prev) => ({
             ...prev,
             customTidalApi: nextSavedState.customTidalApi,
-            downloader: !hasConfiguredCustomTidalApi(nextSavedState.customTidalApi) && prev.downloader === "tidal"
-                ? nextSavedState.downloader
-                : prev.downloader,
-            autoOrder: sanitizeAutoOrder(prev.autoOrder, hasConfiguredCustomTidalApi(nextSavedState.customTidalApi)),
+        }));
+    }, []);
+    const persistCustomQobuzApi = useCallback(async (nextValue: string) => {
+        const normalizedValue = nextValue.trim().replace(/\/+$/g, "");
+        const persistedSettings = getSettings();
+        const nextSavedSettings: SettingsType = {
+            ...persistedSettings,
+            customQobuzApi: normalizedValue,
+        };
+        await saveSettings(nextSavedSettings);
+        const nextSavedState = getSettings();
+        setSavedSettings(nextSavedState);
+        setTempSettings((prev) => ({
+            ...prev,
+            customQobuzApi: nextSavedState.customQobuzApi,
         }));
     }, []);
     const handleCheckCustomTidalApi = async () => {
@@ -223,6 +236,29 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
             console.error("Failed to check custom Tidal API:", error);
             setCustomTidalApiStatus("offline");
             toast.error(`Failed to check HiFi API instance: ${error}`);
+        }
+    };
+    const handleCheckCustomQobuzApi = async () => {
+        const normalizedCustomQobuzApi = (tempSettings.customQobuzApi || "").trim().replace(/\/+$/g, "");
+        if (!normalizedCustomQobuzApi.startsWith("https://")) {
+            toast.error("Enter a valid HTTPS Qobuz-DL instance URL");
+            return;
+        }
+        setCustomQobuzApiStatus("checking");
+        try {
+            const isOnline = await CheckCustomQobuzAPI(normalizedCustomQobuzApi);
+            setCustomQobuzApiStatus(isOnline ? "online" : "offline");
+            if (isOnline) {
+                toast.success("Qobuz-DL instance is online");
+            }
+            else {
+                toast.error("Qobuz-DL instance is offline");
+            }
+        }
+        catch (error) {
+            console.error("Failed to check custom Qobuz API:", error);
+            setCustomQobuzApiStatus("offline");
+            toast.error(`Failed to check Qobuz-DL instance: ${error}`);
         }
     };
     const [activeTab, setActiveTab] = useState<"general" | "download" | "files" | "metadata" | "status">("general");
@@ -364,18 +400,57 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
             </div>
           </div>)}
 
-        {activeTab === "download" && (<div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            <div className="space-y-4">
+        {activeTab === "download" && (<div className="grid grid-cols-1 lg:grid-cols-2 lg:gap-8 items-start">
+            <div className="space-y-4 lg:pr-8 lg:border-r">
               <div className="space-y-2">
-                <Label>Tidal Source</Label>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Button type="button" variant="outline" onClick={() => setShowCustomTidalApiDialog(true)} className="gap-2">
-                    <TidalIcon />
-                    Add Instance
-                  </Button>
-                  {tempSettings.customTidalApi && (<span className="max-w-[260px] truncate text-xs text-muted-foreground" title={tempSettings.customTidalApi}>
-                      {tempSettings.customTidalApi}
-                    </span>)}
+                <Label htmlFor="link-resolver">Link Resolver</Label>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <Select value={tempSettings.linkResolver} onValueChange={(value: "songstats" | "songlink") => setTempSettings((prev) => ({
+                ...prev,
+                linkResolver: value,
+            }))}>
+                    <SelectTrigger id="link-resolver" className="h-9 w-fit min-w-35">
+                      <SelectValue placeholder="Select a link resolver"/>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="songlink">
+                        <span className="flex items-center gap-2">
+                          <SonglinkIcon className="h-4 w-4 shrink-0"/>
+                          Songlink
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="songstats">
+                        <span className="flex items-center gap-2">
+                          <SongstatsIcon className="h-4 w-4 shrink-0"/>
+                          Songstats
+                        </span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <Switch id="allow-link-resolver-fallback" checked={tempSettings.allowResolverFallback} onCheckedChange={(checked) => setTempSettings((prev) => ({
+                ...prev,
+                allowResolverFallback: checked,
+            }))}/>
+                <Label htmlFor="allow-link-resolver-fallback" className="text-sm font-normal cursor-pointer">
+                  Allow Resolver Fallback
+                </Label>
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Label className="text-base font-semibold">Community</Label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help"/>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p className="text-xs whitespace-nowrap">1 track / 30s</p>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
               </div>
 
@@ -391,12 +466,12 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="auto">Auto</SelectItem>
-                      {hasCustomTidalInstanceConfigured && (<SelectItem value="tidal">
-                          <span className="flex items-center gap-2">
-                            <TidalIcon />
-                            Tidal
-                          </span>
-                        </SelectItem>)}
+                      <SelectItem value="tidal">
+                        <span className="flex items-center gap-2">
+                          <TidalIcon />
+                          Tidal
+                        </span>
+                      </SelectItem>
                       <SelectItem value="qobuz">
                         <span className="flex items-center gap-2">
                           <QobuzIcon />
@@ -421,8 +496,7 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="w-fit min-w-max">
-                          {hasCustomTidalInstanceConfigured && (<>
-                              <SelectItem value="tidal-qobuz-amazon">
+                          <SelectItem value="tidal-qobuz-amazon">
                                 <span className="flex items-center gap-1.5">
                                   <TidalIcon className="fill-current"/>
                                   <ArrowRight className="h-3 w-3 text-muted-foreground"/>
@@ -504,7 +578,6 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
                                   <TidalIcon className="fill-current"/>
                                 </span>
                               </SelectItem>
-                            </>)}
                           <SelectItem value="qobuz-amazon">
                             <span className="flex items-center gap-1.5">
                               <QobuzIcon className="fill-current"/>
@@ -553,15 +626,23 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
                       </SelectContent>
                     </Select>)}
 
-                  {effectiveDownloader === "amazon" && (<div className="h-9 px-3 flex items-center text-sm font-medium border border-input rounded-md bg-muted/30 text-muted-foreground whitespace-nowrap cursor-default">
-                      16-bit - 24-bit/44.1kHz - 192kHz
-                    </div>)}
+                  {effectiveDownloader === "amazon" && (<Select value={tempSettings.amazonQuality} onValueChange={handleAmazonQualityChange}>
+                      <SelectTrigger className="h-9 w-fit">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="16">16-bit/44.1kHz</SelectItem>
+                        <SelectItem value="24">24-bit/48kHz - 192kHz</SelectItem>
+                      </SelectContent>
+                    </Select>)}
                 </div>
 
                 {((effectiveDownloader === "tidal" &&
                 tempSettings.tidalQuality === "HI_RES_LOSSLESS") ||
                 (effectiveDownloader === "qobuz" &&
                     tempSettings.qobuzQuality === "27") ||
+                (effectiveDownloader === "amazon" &&
+                    tempSettings.amazonQuality === "24") ||
                 (effectiveDownloader === "auto" &&
                     tempSettings.autoQuality === "24")) && (<div className="flex items-center gap-3 pt-2">
                       <Switch id="allow-fallback" checked={tempSettings.allowFallback} onCheckedChange={(checked) => setTempSettings((prev) => ({
@@ -576,42 +657,34 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
             </div>
 
             <div className="space-y-4">
+              <div className="space-y-1">
+                <Label className="text-base font-semibold">Custom</Label>
+              </div>
+
               <div className="space-y-2">
-                <Label htmlFor="link-resolver">Link Resolver</Label>
-                <div className="flex items-center gap-3 flex-wrap">
-                  <Select value={tempSettings.linkResolver} onValueChange={(value: "songstats" | "songlink") => setTempSettings((prev) => ({
-                ...prev,
-                linkResolver: value,
-            }))}>
-                    <SelectTrigger id="link-resolver" className="h-9 w-fit min-w-35">
-                      <SelectValue placeholder="Select a link resolver"/>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="songlink">
-                        <span className="flex items-center gap-2">
-                          <SonglinkIcon className="h-4 w-4 shrink-0"/>
-                          Songlink
-                        </span>
-                      </SelectItem>
-                      <SelectItem value="songstats">
-                        <span className="flex items-center gap-2">
-                          <SongstatsIcon className="h-4 w-4 shrink-0"/>
-                          Songstats
-                        </span>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+                <Label>Tidal</Label>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button type="button" variant="outline" onClick={() => setShowCustomTidalApiDialog(true)} className="gap-2">
+                    <TidalIcon />
+                    {tempSettings.customTidalApi ? "Change Instance" : "Add Instance"}
+                  </Button>
+                  {tempSettings.customTidalApi && (<span className="max-w-[260px] truncate text-xs text-muted-foreground" title={tempSettings.customTidalApi}>
+                      {tempSettings.customTidalApi}
+                    </span>)}
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 pt-2">
-                <Switch id="allow-link-resolver-fallback" checked={tempSettings.allowResolverFallback} onCheckedChange={(checked) => setTempSettings((prev) => ({
-                ...prev,
-                allowResolverFallback: checked,
-            }))}/>
-                <Label htmlFor="allow-link-resolver-fallback" className="text-sm font-normal cursor-pointer">
-                  Allow Resolver Fallback
-                </Label>
+              <div className="space-y-2">
+                <Label>Qobuz</Label>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button type="button" variant="outline" onClick={() => setShowCustomQobuzApiDialog(true)} className="gap-2">
+                    <QobuzIcon />
+                    {tempSettings.customQobuzApi ? "Change Instance" : "Add Instance"}
+                  </Button>
+                  {tempSettings.customQobuzApi && (<span className="max-w-[260px] truncate text-xs text-muted-foreground" title={tempSettings.customQobuzApi}>
+                      {tempSettings.customQobuzApi}
+                    </span>)}
+                </div>
               </div>
             </div>
           </div>)}
@@ -936,7 +1009,7 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
             <div className="flex items-center justify-between gap-3">
               <DialogTitle>Tidal Source</DialogTitle>
               <button type="button" onClick={() => openExternal("https://github.com/binimum/hifi-api")} className="inline-flex cursor-pointer items-center gap-1 text-xs text-muted-foreground hover:text-foreground hover:underline">
-                How to create your own instance
+                How do I create one?
                 <ExternalLink className="h-3 w-3"/>
               </button>
             </div>
@@ -976,6 +1049,58 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCustomTidalApiDialog(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showCustomQobuzApiDialog} onOpenChange={setShowCustomQobuzApiDialog}>
+        <DialogContent className="sm:max-w-md [&>button]:hidden">
+          <DialogHeader>
+            <div className="flex items-center justify-between gap-3">
+              <DialogTitle>Qobuz Source</DialogTitle>
+              <button type="button" onClick={() => openExternal("https://github.com/QobuzDL/Qobuz-DL")} className="inline-flex cursor-pointer items-center gap-1 text-xs text-muted-foreground hover:text-foreground hover:underline">
+                How do I create one?
+                <ExternalLink className="h-3 w-3"/>
+              </button>
+            </div>
+            <DialogDescription />
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="custom-qobuz-api">Instance URL</Label>
+              <div className="flex gap-2">
+                <Input id="custom-qobuz-api" type="url" value={tempSettings.customQobuzApi || ""} onChange={(e) => {
+            const nextValue = e.target.value.replace(/\/+$/g, "");
+            setCustomQobuzApiStatus("idle");
+            void persistCustomQobuzApi(nextValue);
+        }} placeholder="https://your-qobuz-dl.example"/>
+                <Button type="button" variant="outline" className="gap-2" onClick={() => void handleCheckCustomQobuzApi()} disabled={!((tempSettings.customQobuzApi || "").trim().startsWith("https://")) || customQobuzApiStatus === "checking"}>
+                  {customQobuzApiStatus === "checking" ? "Checking..." : <><PlugZap className="h-4 w-4"/>Check</>}
+                </Button>
+                {tempSettings.customQobuzApi && (<Button type="button" variant="outline" size="icon" onClick={() => {
+                setCustomQobuzApiStatus("idle");
+                void persistCustomQobuzApi("");
+            }}>
+                    <Trash2 className="h-4 w-4 text-destructive"/>
+                  </Button>)}
+              </div>
+            </div>
+            {customQobuzApiStatus !== "idle" && (<p className={`text-xs ${customQobuzApiStatus === "online"
+                ? "text-green-600 dark:text-green-400"
+                : customQobuzApiStatus === "offline"
+                    ? "text-destructive"
+                    : "text-muted-foreground"}`}>
+                {customQobuzApiStatus === "online"
+                ? "Custom Qobuz-DL instance is online."
+                : customQobuzApiStatus === "offline"
+                    ? "Custom Qobuz-DL instance is offline or returned no download URL."
+                    : "Checking custom Qobuz-DL instance..."}
+              </p>)}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCustomQobuzApiDialog(false)}>
               Close
             </Button>
           </DialogFooter>

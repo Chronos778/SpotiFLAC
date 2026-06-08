@@ -4,14 +4,14 @@ import type { HTMLAttributes } from 'react';
 import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
 import { motion, useAnimation } from 'motion/react';
 import { cn } from '@/lib/utils';
-export interface ToolCaseIconHandle {
+export interface FileTextIconHandle {
     startAnimation: () => void;
     stopAnimation: () => void;
 }
-interface ToolCaseIconProps extends HTMLAttributes<HTMLDivElement> {
+interface FileTextIconProps extends HTMLAttributes<HTMLDivElement> {
     size?: number;
 }
-const DRAW_VARIANTS: Variants = {
+const PATH_VARIANTS: Variants = {
     normal: {
         pathLength: 1,
         opacity: 1,
@@ -25,21 +25,7 @@ const DRAW_VARIANTS: Variants = {
         },
     },
 };
-const HANDLE_VARIANTS: Variants = {
-    normal: {
-        scaleX: 1,
-        originX: '50%',
-    },
-    animate: {
-        scaleX: [0.6, 1.1, 1],
-        originX: '50%',
-        transition: {
-            duration: 0.45,
-            ease: 'easeInOut',
-        },
-    },
-};
-const ToolCaseIcon = forwardRef<ToolCaseIconHandle, ToolCaseIconProps>(({ onMouseEnter, onMouseLeave, className, size = 28, ...props }, ref) => {
+const FileTextIcon = forwardRef<FileTextIconHandle, FileTextIconProps>(({ onMouseEnter, onMouseLeave, className, size = 28, ...props }, ref) => {
     const controls = useAnimation();
     const isControlledRef = useRef(false);
     useImperativeHandle(ref, () => {
@@ -66,13 +52,14 @@ const ToolCaseIcon = forwardRef<ToolCaseIconHandle, ToolCaseIconProps>(({ onMous
         }
     }, [controls, onMouseLeave]);
     return (<div className={cn(className)} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} {...props}>
-      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <motion.path d="M10 15h4" variants={HANDLE_VARIANTS} animate={controls} initial="normal"/>
-        <motion.path d="m14.817 10.995-.971-1.45 1.034-1.232a2 2 0 0 0-2.025-3.238l-1.82.364L9.91 3.885a2 2 0 0 0-3.625.748L6.141 6.55l-1.725.426a2 2 0 0 0-.19 3.756l.657.27" variants={DRAW_VARIANTS} animate={controls} initial="normal"/>
-        <motion.path d="m18.822 10.995 2.26-5.38a1 1 0 0 0-.557-1.318L16.954 2.9a1 1 0 0 0-1.281.533l-.924 2.122" variants={DRAW_VARIANTS} animate={controls} initial="normal"/>
-        <motion.path d="M4 12.006A1 1 0 0 1 4.994 11H19a1 1 0 0 1 1 1v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" variants={DRAW_VARIANTS} animate={controls} initial="normal"/>
-      </svg>
-    </div>);
+                <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <motion.path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" variants={PATH_VARIANTS} animate={controls} initial="normal"/>
+                    <motion.path d="M14 2v5a1 1 0 0 0 1 1h5" variants={PATH_VARIANTS} animate={controls} initial="normal"/>
+                    <motion.path d="M10 9H8" variants={PATH_VARIANTS} animate={controls} initial="normal"/>
+                    <motion.path d="M16 13H8" variants={PATH_VARIANTS} animate={controls} initial="normal"/>
+                    <motion.path d="M16 17H8" variants={PATH_VARIANTS} animate={controls} initial="normal"/>
+                </svg>
+            </div>);
 });
-ToolCaseIcon.displayName = 'ToolCaseIcon';
-export { ToolCaseIcon };
+FileTextIcon.displayName = 'FileTextIcon';
+export { FileTextIcon };

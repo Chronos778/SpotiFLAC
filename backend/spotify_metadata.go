@@ -103,6 +103,7 @@ type AlbumInfoMetadata struct {
 	ReleaseDate string `json:"release_date"`
 	Artists     string `json:"artists"`
 	Images      string `json:"images"`
+	IsExplicit  bool   `json:"is_explicit,omitempty"`
 	UPC         string `json:"upc,omitempty"`
 	Batch       string `json:"batch,omitempty"`
 	ArtistID    string `json:"artist_id,omitempty"`
@@ -162,6 +163,7 @@ type DiscographyAlbumMetadata struct {
 	Artists     string `json:"artists"`
 	Images      string `json:"images"`
 	ExternalURL string `json:"external_urls"`
+	IsExplicit  bool   `json:"is_explicit,omitempty"`
 }
 
 type ArtistDiscographyPayload struct {
@@ -1104,12 +1106,21 @@ func (c *SpotifyMetadataClient) formatAlbumData(raw *apiAlbumResponse, callback 
 		break
 	}
 
+	albumExplicit := false
+	for _, track := range raw.Tracks {
+		if track.IsExplicit {
+			albumExplicit = true
+			break
+		}
+	}
+
 	info := AlbumInfoMetadata{
 		TotalTracks: raw.Count,
 		Name:        raw.Name,
 		ReleaseDate: raw.ReleaseDate,
 		Artists:     raw.Artists,
 		Images:      raw.Cover,
+		IsExplicit:  albumExplicit,
 		UPC:         raw.UPC,
 		ArtistID:    artistID,
 		ArtistURL:   artistURL,
@@ -1276,8 +1287,10 @@ func (c *SpotifyMetadataClient) formatArtistDiscographyData(ctx context.Context,
 	allTracks := make([]AlbumTrackMetadata, 0)
 
 	type fetchResult struct {
-		tracks []AlbumTrackMetadata
-		err    error
+		albumID    string
+		tracks     []AlbumTrackMetadata
+		isExplicit bool
+		err        error
 	}
 
 	resultsChan := make(chan fetchResult, len(raw.Discography.All))
@@ -1318,7 +1331,7 @@ func (c *SpotifyMetadataClient) formatArtistDiscographyData(ctx context.Context,
 
 			select {
 			case <-ctx.Done():
-				resultsChan <- fetchResult{err: ctx.Err()}
+				resultsChan <- fetchResult{albumID: albumID, err: ctx.Err()}
 				return
 			default:
 			}
@@ -1326,14 +1339,18 @@ func (c *SpotifyMetadataClient) formatArtistDiscographyData(ctx context.Context,
 			albumData, err := c.fetchAlbumWithClient(ctx, sharedClient, albumID, nil)
 			if err != nil {
 				fmt.Printf("Error getting tracks for album %s: %v\n", albumName, err)
-				resultsChan <- fetchResult{tracks: []AlbumTrackMetadata{}}
+				resultsChan <- fetchResult{albumID: albumID, tracks: []AlbumTrackMetadata{}}
 				return
 			}
 
 			tracks := make([]AlbumTrackMetadata, 0, len(albumData.Tracks))
+			albumExplicit := false
 			for idx, tr := range albumData.Tracks {
 				durationMS := parseDuration(tr.Duration)
 				trackNumber := idx + 1
+				if tr.IsExplicit {
+					albumExplicit = true
+				}
 
 				var artistID, artistURL string
 				if len(tr.ArtistIds) > 0 {
@@ -1377,7 +1394,7 @@ func (c *SpotifyMetadataClient) formatArtistDiscographyData(ctx context.Context,
 			if callback != nil {
 				callback(tracks)
 			}
-			resultsChan <- fetchResult{tracks: tracks}
+			resultsChan <- fetchResult{albumID: albumID, tracks: tracks, isExplicit: albumExplicit}
 		}(alb.ID, alb.Name)
 	}
 
@@ -1385,6 +1402,12 @@ func (c *SpotifyMetadataClient) formatArtistDiscographyData(ctx context.Context,
 		res := <-resultsChan
 		if res.err != nil {
 			return nil, res.err
+		}
+		for albumIndex := range albumList {
+			if albumList[albumIndex].ID == res.albumID {
+				albumList[albumIndex].IsExplicit = res.isExplicit
+				break
+			}
 		}
 		allTracks = append(allTracks, res.tracks...)
 	}

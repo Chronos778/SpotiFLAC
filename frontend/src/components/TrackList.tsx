@@ -7,7 +7,7 @@ import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, Pagi
 import type { TrackMetadata, TrackAvailability } from "@/types/api";
 import { usePreview } from "@/hooks/usePreview";
 import { AvailabilityLinks, hasAvailabilityLinks } from "./AvailabilityLinks";
-import { buildClickableArtists } from "@/lib/artist-links";
+import { buildClickableArtists, getClickableArtistKey } from "@/lib/artist-links";
 interface TrackListProps {
     tracks: TrackMetadata[];
     searchQuery: string;
@@ -55,6 +55,7 @@ interface TrackListProps {
 }
 export function TrackList({ tracks, searchQuery, sortBy, selectedTracks, downloadedTracks, failedTracks, skippedTracks, downloadingTrack, isDownloading, currentPage, itemsPerPage, showCheckboxes = false, hideAlbumColumn = false, folderName, isArtistDiscography = false, downloadedLyrics, failedLyrics, skippedLyrics, downloadingLyricsTrack, checkingAvailabilityTrack, availabilityMap, downloadedCovers, failedCovers, skippedCovers, downloadingCoverTrack, onToggleTrack, onToggleSelectAll, onDownloadTrack, onDownloadLyrics, onCheckAvailability, onDownloadCover, onPageChange, onAlbumClick, onArtistClick, onTrackClick, }: TrackListProps) {
     const { playPreview, loadingPreview, playingTrack } = usePreview();
+    const getTrackKey = (track: TrackMetadata) => track.spotify_id || track.external_urls || `${track.name}-${track.album_name}-${track.disc_number ?? 1}-${track.track_number}`;
     let filteredTracks = tracks.filter((track) => {
         if (!searchQuery)
             return true;
@@ -219,7 +220,7 @@ export function TrackList({ tracks, searchQuery, sortBy, selectedTracks, downloa
             </tr>
           </thead>
           <tbody>
-            {paginatedTracks.map((track, index) => (<tr key={index} className="border-b transition-colors hover:bg-muted/50">
+            {paginatedTracks.map((track, index) => (<tr key={getTrackKey(track)} className="border-b transition-colors hover:bg-muted/50">
               {showCheckboxes && (<td className="p-4 align-middle">
                 {track.spotify_id && (<Checkbox checked={selectedTracks.includes(track.spotify_id)} onCheckedChange={() => onToggleTrack(track.spotify_id!)}/>)}
               </td>)}
@@ -242,9 +243,9 @@ export function TrackList({ tracks, searchQuery, sortBy, selectedTracks, downloa
                   {track.images && (<img src={track.images} alt={track.name} className="w-10 h-10 rounded object-cover"/>)}
                   <div className="flex flex-col">
                     <div className="flex items-center gap-2">
-                      {onTrackClick ? (<span className="font-medium cursor-pointer hover:underline" onClick={() => onTrackClick(track)}>
+                      {onTrackClick ? (<button type="button" className="font-medium cursor-pointer rounded-sm bg-transparent p-0 text-left text-inherit hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" onClick={() => onTrackClick(track)}>
                         {track.name}
-                      </span>) : (<span className="font-medium">{track.name}</span>)}
+                      </button>) : (<span className="font-medium">{track.name}</span>)}
                       {track.is_explicit && (<span className="inline-flex items-center justify-center bg-red-600 text-white text-[10px] h-4 w-4 rounded shrink-0" title="Explicit">E</span>)}
 
                       {track.spotify_id && skippedTracks.has(track.spotify_id) ? (<FileCheck className="h-4 w-4 text-yellow-500 shrink-0"/>) : track.spotify_id && downloadedTracks.has(track.spotify_id) ? (<CheckCircle className="h-4 w-4 text-green-500 shrink-0"/>) : track.spotify_id && failedTracks.has(track.spotify_id) ? (<XCircle className="h-4 w-4 text-red-500 shrink-0"/>) : null}
@@ -255,14 +256,14 @@ export function TrackList({ tracks, searchQuery, sortBy, selectedTracks, downloa
                 if (clickableArtists.length === 0) {
                     return track.artists;
                 }
-                return clickableArtists.map((artist, i) => (<span key={`${artist.id || artist.name}-${i}`}>
-                            {onArtistClick ? (<span className="cursor-pointer hover:underline" onClick={() => onArtistClick({
+                return clickableArtists.map((artist, i) => (<span key={getClickableArtistKey(artist)}>
+                            {onArtistClick ? (<button type="button" className="cursor-pointer rounded-sm bg-transparent p-0 text-inherit hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" onClick={() => onArtistClick({
                             id: artist.id,
                             name: artist.name,
                             external_urls: artist.external_urls,
                         })}>
                                 {artist.name}
-                              </span>) : (artist.name)}
+                              </button>) : (artist.name)}
                             {i < clickableArtists.length - 1 && ", "}
                           </span>));
             })()}
@@ -271,13 +272,13 @@ export function TrackList({ tracks, searchQuery, sortBy, selectedTracks, downloa
                 </div>
               </td>
               {!hideAlbumColumn && (<td className="p-4 align-middle text-sm text-muted-foreground hidden md:table-cell">
-                {onAlbumClick && track.album_id && track.album_url ? (<span className="cursor-pointer hover:underline" onClick={() => onAlbumClick({
+                {onAlbumClick && track.album_id && track.album_url ? (<button type="button" className="cursor-pointer rounded-sm bg-transparent p-0 text-left text-inherit hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" onClick={() => onAlbumClick({
                         id: track.album_id!,
                         name: track.album_name,
                         external_urls: track.album_url!,
                     })}>
                   {track.album_name}
-                </span>) : (track.album_name)}
+                </button>) : (track.album_name)}
               </td>)}
               <td className="p-4 align-middle text-sm text-muted-foreground hidden lg:table-cell">
                 {formatDuration(track.duration_ms)}
