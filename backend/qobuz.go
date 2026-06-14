@@ -468,23 +468,18 @@ func (q *QobuzDownloader) DownloadFromWJHE(trackID int64, quality string) (strin
 	apiURL := buildQobuzWJHEDownloadURL(trackID, quality)
 	client := newQobuzNoRedirectClient(q.client)
 
-	req, err := NewRequestWithDefaultHeaders(http.MethodHead, apiURL, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to create WJHE request: %w", err)
-	}
-
-	resp, err := client.Do(req)
+	resp, err := doCommunityRequest(client, "WJHE", func() (*http.Request, error) {
+		return NewRequestWithDefaultHeaders(http.MethodHead, apiURL, nil)
+	})
 	if err != nil {
 		return "", fmt.Errorf("failed to reach WJHE: %w", err)
 	}
 
 	if resp.StatusCode == http.StatusMethodNotAllowed || resp.StatusCode == http.StatusNotImplemented {
 		resp.Body.Close()
-		req, err = NewRequestWithDefaultHeaders(http.MethodGet, apiURL, nil)
-		if err != nil {
-			return "", fmt.Errorf("failed to create WJHE fallback request: %w", err)
-		}
-		resp, err = client.Do(req)
+		resp, err = doCommunityRequest(client, "WJHE", func() (*http.Request, error) {
+			return NewRequestWithDefaultHeaders(http.MethodGet, apiURL, nil)
+		})
 		if err != nil {
 			return "", fmt.Errorf("failed to reach WJHE with GET fallback: %w", err)
 		}
@@ -613,15 +608,16 @@ func (q *QobuzDownloader) DownloadFromGDStudio(trackID int64, quality string, ap
 		"s":      {buildQobuzGDStudioSignature(apiURL, trackIDString, ts9)},
 	}
 
-	req, err := NewRequestWithDefaultHeaders(http.MethodPost, apiURL, strings.NewReader(payload.Encode()))
-	if err != nil {
-		return "", fmt.Errorf("failed to create GDStudio request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
-	req.Header.Set("Origin", fmt.Sprintf("https://%s", signatureHost))
-	req.Header.Set("Referer", fmt.Sprintf("https://%s/", signatureHost))
-
-	resp, err := q.client.Do(req)
+	resp, err := doCommunityRequest(q.client, "GDStudio", func() (*http.Request, error) {
+		req, err := NewRequestWithDefaultHeaders(http.MethodPost, apiURL, strings.NewReader(payload.Encode()))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
+		req.Header.Set("Origin", fmt.Sprintf("https://%s", signatureHost))
+		req.Header.Set("Referer", fmt.Sprintf("https://%s/", signatureHost))
+		return req, nil
+	})
 	if err != nil {
 		return "", fmt.Errorf("failed to reach GDStudio: %w", err)
 	}
@@ -662,15 +658,15 @@ func (q *QobuzDownloader) DownloadFromMusicDL(trackID int64, quality string) (st
 		return "", fmt.Errorf("failed to encode MusicDL request: %w", err)
 	}
 
-	req, err := NewRequestWithDefaultHeaders(http.MethodPost, GetQobuzMusicDLDownloadAPIURL(), bytes.NewReader(payload))
-	if err != nil {
-		return "", fmt.Errorf("failed to create MusicDL request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Debug-Key", debugKey)
-
-	resp, err := q.client.Do(req)
+	resp, err := doCommunityRequest(q.client, "MusicDL", func() (*http.Request, error) {
+		req, err := NewRequestWithDefaultHeaders(http.MethodPost, GetQobuzMusicDLDownloadAPIURL(), bytes.NewReader(payload))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Debug-Key", debugKey)
+		return req, nil
+	})
 	if err != nil {
 		return "", fmt.Errorf("failed to reach MusicDL: %w", err)
 	}
