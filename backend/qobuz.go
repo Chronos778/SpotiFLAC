@@ -233,11 +233,34 @@ func scoreQobuzSearchCandidate(track QobuzTrack, spotifyTrackName string, spotif
 
 	artistNeedle := normalizeQobuzSearchValue(spotifyArtistName)
 	artistHaystack := normalizeQobuzSearchValue(qobuzTrackDisplayArtist(track))
+	artistMatched := false
 	switch {
 	case artistNeedle != "" && artistHaystack == artistNeedle:
 		score += 300
+		artistMatched = true
 	case artistNeedle != "" && artistHaystack != "" && (strings.Contains(artistHaystack, artistNeedle) || strings.Contains(artistNeedle, artistHaystack)):
 		score += 180
+		artistMatched = true
+	}
+
+	if artistNeedle != "" && !artistMatched {
+		needleTokens := strings.Fields(artistNeedle)
+		haystackTokens := strings.Fields(artistHaystack)
+		matchCount := 0
+		for _, nt := range needleTokens {
+			for _, ht := range haystackTokens {
+				if nt == ht {
+					matchCount++
+					break
+				}
+			}
+		}
+		if matchCount > 0 {
+			score += 50
+			artistMatched = true
+		} else {
+			score -= 2000
+		}
 	}
 
 	albumNeedle := normalizeQobuzSearchValue(spotifyAlbumName)
@@ -253,6 +276,16 @@ func scoreQobuzSearchCandidate(track QobuzTrack, spotifyTrackName string, spotif
 		score += 40
 	} else if track.MaximumBitDepth >= 16 {
 		score += 20
+	}
+
+	badKeywords := []string{"karaoke", "instrumental", "cover", "tribute", "as made famous by", "in the style of", "lullaby", "8 bit", "8-bit", "16 bit", "16-bit", "chill"}
+	for _, kw := range badKeywords {
+		if strings.Contains(titleHaystack, kw) && !strings.Contains(titleNeedle, kw) {
+			score -= 2000
+		}
+		if strings.Contains(artistHaystack, kw) && !strings.Contains(artistNeedle, kw) {
+			score -= 2000
+		}
 	}
 
 	return score
@@ -444,14 +477,19 @@ func (q *QobuzDownloader) searchByISRC(isrc string, spotifyTrackName string, spo
 			continue
 		}
 
-		bestIndex := 0
+		bestIndex := -1
 		bestScore := -1
 		for idx, candidate := range searchResp.Tracks.Items {
 			score := scoreQobuzSearchCandidate(candidate, spotifyTrackName, spotifyArtistName, spotifyAlbumName)
-			if idx == 0 || score > bestScore {
+			if bestIndex == -1 || score > bestScore {
 				bestIndex = idx
 				bestScore = score
 			}
+		}
+
+		if bestScore <= 0 {
+			lastErr = fmt.Errorf("no suitable track found for query: %s (best score: %d)", query, bestScore)
+			continue
 		}
 
 		selected := searchResp.Tracks.Items[bestIndex]
