@@ -156,14 +156,17 @@ func doCommunityRequest(client *http.Client, service string, reqFn func() (*http
 			return nil, err
 		}
 
-		if resp.StatusCode != http.StatusTooManyRequests {
+		if resp.StatusCode != http.StatusTooManyRequests && resp.StatusCode != http.StatusServiceUnavailable && resp.StatusCode != http.StatusBadGateway && resp.StatusCode != http.StatusGatewayTimeout {
 			ClearRateLimitCooldown()
 			return resp, nil
 		}
 
 		wait := communityRetryAfter(resp)
+		if resp.StatusCode >= 500 && wait == communityRateLimitFallbackWait {
+			wait = time.Duration(attempt+1) * 5 * time.Second
+		}
 		resp.Body.Close()
-		lastErr = fmt.Errorf("%s community API rate limited (429)", service)
+		lastErr = fmt.Errorf("%s API returned %d, retrying", service, resp.StatusCode)
 
 		if attempt == communityRateLimitMaxRetries {
 			break

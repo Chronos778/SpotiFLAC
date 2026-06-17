@@ -233,11 +233,34 @@ func scoreQobuzSearchCandidate(track QobuzTrack, spotifyTrackName string, spotif
 
 	artistNeedle := normalizeQobuzSearchValue(spotifyArtistName)
 	artistHaystack := normalizeQobuzSearchValue(qobuzTrackDisplayArtist(track))
+	artistMatched := false
 	switch {
 	case artistNeedle != "" && artistHaystack == artistNeedle:
 		score += 300
+		artistMatched = true
 	case artistNeedle != "" && artistHaystack != "" && (strings.Contains(artistHaystack, artistNeedle) || strings.Contains(artistNeedle, artistHaystack)):
 		score += 180
+		artistMatched = true
+	}
+
+	if artistNeedle != "" && !artistMatched {
+		needleTokens := strings.Fields(artistNeedle)
+		haystackTokens := strings.Fields(artistHaystack)
+		matchCount := 0
+		for _, nt := range needleTokens {
+			for _, ht := range haystackTokens {
+				if nt == ht {
+					matchCount++
+					break
+				}
+			}
+		}
+		if matchCount > 0 {
+			score += 50
+			artistMatched = true
+		} else {
+			score -= 2000
+		}
 	}
 
 	albumNeedle := normalizeQobuzSearchValue(spotifyAlbumName)
@@ -253,6 +276,16 @@ func scoreQobuzSearchCandidate(track QobuzTrack, spotifyTrackName string, spotif
 		score += 40
 	} else if track.MaximumBitDepth >= 16 {
 		score += 20
+	}
+
+	badKeywords := []string{"karaoke", "instrumental", "cover", "tribute", "as made famous by", "in the style of", "lullaby", "8 bit", "8-bit", "16 bit", "16-bit", "chill"}
+	for _, kw := range badKeywords {
+		if strings.Contains(titleHaystack, kw) && !strings.Contains(titleNeedle, kw) {
+			score -= 2000
+		}
+		if strings.Contains(artistHaystack, kw) && !strings.Contains(artistNeedle, kw) {
+			score -= 2000
+		}
 	}
 
 	return score
@@ -444,14 +477,19 @@ func (q *QobuzDownloader) searchByISRC(isrc string, spotifyTrackName string, spo
 			continue
 		}
 
-		bestIndex := 0
+		bestIndex := -1
 		bestScore := -1
 		for idx, candidate := range searchResp.Tracks.Items {
 			score := scoreQobuzSearchCandidate(candidate, spotifyTrackName, spotifyArtistName, spotifyAlbumName)
-			if idx == 0 || score > bestScore {
+			if bestIndex == -1 || score > bestScore {
 				bestIndex = idx
 				bestScore = score
 			}
+		}
+
+		if bestScore <= 0 {
+			lastErr = fmt.Errorf("no suitable track found for query: %s (best score: %d)", query, bestScore)
+			continue
 		}
 
 		selected := searchResp.Tracks.Items[bestIndex]
@@ -468,23 +506,18 @@ func (q *QobuzDownloader) DownloadFromWJHE(trackID int64, quality string) (strin
 	apiURL := buildQobuzWJHEDownloadURL(trackID, quality)
 	client := newQobuzNoRedirectClient(q.client)
 
-	req, err := NewRequestWithDefaultHeaders(http.MethodHead, apiURL, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to create WJHE request: %w", err)
-	}
-
-	resp, err := client.Do(req)
+	resp, err := doCommunityRequest(client, "WJHE", func() (*http.Request, error) {
+		return NewRequestWithDefaultHeaders(http.MethodHead, apiURL, nil)
+	})
 	if err != nil {
 		return "", fmt.Errorf("failed to reach WJHE: %w", err)
 	}
 
 	if resp.StatusCode == http.StatusMethodNotAllowed || resp.StatusCode == http.StatusNotImplemented {
 		resp.Body.Close()
-		req, err = NewRequestWithDefaultHeaders(http.MethodGet, apiURL, nil)
-		if err != nil {
-			return "", fmt.Errorf("failed to create WJHE fallback request: %w", err)
-		}
-		resp, err = client.Do(req)
+		resp, err = doCommunityRequest(client, "WJHE", func() (*http.Request, error) {
+			return NewRequestWithDefaultHeaders(http.MethodGet, apiURL, nil)
+		})
 		if err != nil {
 			return "", fmt.Errorf("failed to reach WJHE with GET fallback: %w", err)
 		}
@@ -613,15 +646,16 @@ func (q *QobuzDownloader) DownloadFromGDStudio(trackID int64, quality string, ap
 		"s":      {buildQobuzGDStudioSignature(apiURL, trackIDString, ts9)},
 	}
 
-	req, err := NewRequestWithDefaultHeaders(http.MethodPost, apiURL, strings.NewReader(payload.Encode()))
-	if err != nil {
-		return "", fmt.Errorf("failed to create GDStudio request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
-	req.Header.Set("Origin", fmt.Sprintf("https://%s", signatureHost))
-	req.Header.Set("Referer", fmt.Sprintf("https://%s/", signatureHost))
-
-	resp, err := q.client.Do(req)
+	resp, err := doCommunityRequest(q.client, "GDStudio", func() (*http.Request, error) {
+		req, err := NewRequestWithDefaultHeaders(http.MethodPost, apiURL, strings.NewReader(payload.Encode()))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
+		req.Header.Set("Origin", fmt.Sprintf("https://%s", signatureHost))
+		req.Header.Set("Referer", fmt.Sprintf("https://%s/", signatureHost))
+		return req, nil
+	})
 	if err != nil {
 		return "", fmt.Errorf("failed to reach GDStudio: %w", err)
 	}
@@ -662,15 +696,15 @@ func (q *QobuzDownloader) DownloadFromMusicDL(trackID int64, quality string) (st
 		return "", fmt.Errorf("failed to encode MusicDL request: %w", err)
 	}
 
-	req, err := NewRequestWithDefaultHeaders(http.MethodPost, GetQobuzMusicDLDownloadAPIURL(), bytes.NewReader(payload))
-	if err != nil {
-		return "", fmt.Errorf("failed to create MusicDL request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Debug-Key", debugKey)
-
-	resp, err := q.client.Do(req)
+	resp, err := doCommunityRequest(q.client, "MusicDL", func() (*http.Request, error) {
+		req, err := NewRequestWithDefaultHeaders(http.MethodPost, GetQobuzMusicDLDownloadAPIURL(), bytes.NewReader(payload))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Debug-Key", debugKey)
+		return req, nil
+	})
 	if err != nil {
 		return "", fmt.Errorf("failed to reach MusicDL: %w", err)
 	}
